@@ -136,6 +136,64 @@ export function PreviewPanel() {
 
   const activeElements = getActiveElements();
 
+  const { updateTextElement } = useTimelineStore();
+
+  const [textDragState, setTextDragState] = useState({
+    isDragging: false,
+    elementId: null as string | null,
+    trackId: null as string | null,
+    startMouseX: 0,
+    startMouseY: 0,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+  });
+
+  useEffect(() => {
+    if (!textDragState.isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const scaleRatio = previewDimensions.width / canvasSize.width;
+      const deltaX = (e.clientX - textDragState.startMouseX) / scaleRatio;
+      const deltaY = (e.clientY - textDragState.startMouseY) / scaleRatio;
+
+      setTextDragState((state) => ({
+        ...state,
+        currentX: state.startX + deltaX,
+        currentY: state.startY + deltaY,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (textDragState.elementId && textDragState.trackId) {
+        updateTextElement(textDragState.trackId, textDragState.elementId, {
+          x: textDragState.currentX,
+          y: textDragState.currentY,
+        });
+      }
+      setTextDragState({
+        isDragging: false,
+        elementId: null,
+        trackId: null,
+        startMouseX: 0,
+        startMouseY: 0,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+      });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [textDragState, previewDimensions.width, canvasSize.width]);
+
   // Check if there are any elements in the timeline at all
   const hasAnyElements = tracks.some((track) => track.elements.length > 0);
 
@@ -229,17 +287,41 @@ export function PreviewPanel() {
 
       const scaleRatio = previewDimensions.width / canvasSize.width;
 
+      const isDragging =
+        textDragState.isDragging && textDragState.elementId === element.id;
+      const currentX = isDragging ? textDragState.currentX : element.x;
+      const currentY = isDragging ? textDragState.currentY : element.y;
+
+      const handleMouseDown = (
+        e: React.MouseEvent<HTMLDivElement, MouseEvent>
+      ) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        setTextDragState({
+          isDragging: true,
+          elementId: element.id,
+          trackId: elementData.track.id,
+          startMouseX: e.clientX,
+          startMouseY: e.clientY,
+          startX: element.x,
+          startY: element.y,
+          currentX: element.x,
+          currentY: element.y,
+        });
+      };
+
       return (
         <div
           key={element.id}
-          className="absolute flex items-center justify-center"
+          className="absolute flex items-center justify-center cursor-move"
           style={{
-            left: `${50 + (element.x / canvasSize.width) * 100}%`,
-            top: `${50 + (element.y / canvasSize.height) * 100}%`,
+            left: `${50 + (currentX / canvasSize.width) * 100}%`,
+            top: `${50 + (currentY / canvasSize.height) * 100}%`,
             transform: `translate(-50%, -50%) rotate(${element.rotation}deg) scale(${scaleRatio})`,
             opacity: element.opacity,
             zIndex: 100 + index, // Text elements on top
           }}
+          onMouseDown={handleMouseDown}
         >
           <div
             className={fontClassName}
@@ -254,7 +336,6 @@ export function PreviewPanel() {
               padding: "4px 8px",
               borderRadius: "2px",
               whiteSpace: "nowrap",
-              // Fallback for system fonts that don't have classes
               ...(fontClassName === "" && { fontFamily: element.fontFamily }),
             }}
           >
