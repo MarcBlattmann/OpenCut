@@ -837,7 +837,7 @@ export function Timeline() {
           playheadRef={playheadRef}
         />
         {/* Timeline Header with Ruler */}
-        <div className="flex bg-panel sticky top-0 z-10">
+        <div className="flex bg-panel sticky top-0 z-[200]">
           {/* Track Labels Header */}
           <div className="w-48 flex-shrink-0 bg-muted/30 border-r flex items-center justify-between px-3 py-2">
             {/* Empty space */}
